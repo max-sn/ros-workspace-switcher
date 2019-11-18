@@ -1,0 +1,184 @@
+#! /usr/bin/python3
+
+import argparse
+import os
+import sys
+
+
+class RosWorkspaceSwitcherInstaller():
+
+    def __init__(self, args):
+        self.installer = "ROS WORKSPACE SWITCHER INSTALLER"
+        self.root = os.path.abspath(os.path.dirname(__file__))
+        base = "#= {} configuration ".format(self.installer)
+        base += "="*(80 - len(base) - 1)
+        self.start_str = base + "+"
+        self.end_str = base + "*"
+
+        self.debug = args.debug
+
+        if args.file:
+            self.bashrc_path = os.path.abspath(args.file)
+        else:
+            self.bashrc_path = os.path.join(os.getenv('HOME'), '.bashrc')
+
+        if self.debug:
+            print(args)
+        if not args.uninstall:
+            self.install()
+        else:
+            self.uninstall()
+
+    def _format_str_for_printing(self, message):
+        lines = []
+        endidx = 80
+        while endidx < len(message):
+            while message[endidx - 1] not in [" ", "\t"]:
+                endidx -= 1
+            lines.append(message[:endidx].strip())
+            message = message[endidx:]
+            endidx = 80
+        lines.append(message.strip())
+        return "\n".join(lines)
+
+    def generate_config(self):
+        self.config = [
+            self.start_str,
+            ("#   * Everything in this block is managed by an installer and"
+             " can be deleted   |"),
+            ("#     without prior notice. Please do not edit manually."
+             "                       |"),
+            "#" + "=" * 78 + "+",
+            "",
+            "# Load custom aliases from .scripts folder",
+            "if [ -f " + self.root + "/bin/workspace.bash ]; then",
+            "    alias workspace='. " + self.root + "/bin/workspace.bash'",
+            "fi",
+            "# Source completion of custom scripts",
+            "if [ -f " + self.root + "/completion/workspace_comp.py ]; then",
+            "    complete -C " + self.root + "/completion/workspace_comp.py workspace",
+            "fi",
+            "",
+            self.end_str,
+            ""]
+
+    def read_bashrc_contents(self):
+
+        if os.path.isfile(self.bashrc_path):
+            with open(self.bashrc_path, 'r') as f:
+                self.bashrc_text = f.read()
+                self.bashrc_contents = self.bashrc_text.split('\n')
+        else:
+            self.bashrc_contents = [
+                "# ~/.bashrc: executed by bash(1) for non-login shells.",
+                ("# see /usr/share/doc/bash/examples/startup-files (in the "
+                 "package bash-doc)"),
+                "# for examples",
+                "",
+                "# If not running interactively, don't do anything",
+                "case $- in",
+                "    *i*) ;;",
+                "      *) return;;",
+                "esac",
+                ""]
+
+    def delete_config_block(self):
+        start = end = None
+        status = True
+
+        # TODO If multiple are found, what happens then?
+        for i, line in enumerate(self.bashrc_contents):
+            if self.start_str in line:
+                start = i
+            if self.end_str in line:
+                end = i + 1
+
+        if (start is None) ^ (end is None):
+            wrn_str = ("Warning: {} line of the {installer} configuration "
+                       "block is not found in the .bashrc file, but the {} "
+                       "line is found. This might lead to unexpected "
+                       "behaviour. Please remove the remainder of the "
+                       "configuration block manually, it can be found around "
+                       "line {}.")
+            if start is None:
+                wrn_str = self._format_str_for_printing(wrn_str.format(
+                    'starting', 'end', end + 1, installer=self.installer))
+                print(wrn_str)
+            if end is None:
+                wrn_str = self._format_str_for_printing(wrn_str.format(
+                    'end', 'starting', start + 1, installer=self.installer))
+                print(wrn_str)
+
+            status = False
+
+        if start is not None and end is not None:
+
+            rws_config = self.bashrc_contents[start:end]
+            del self.bashrc_contents[start:end]
+            # This weird contraption reduces the number of blank lines when
+            # the configuration block is removed.
+            start -= 1
+            while not self.bashrc_contents[start]:
+                start -= 1
+                if start < 0:
+                    break
+            end = start + 1
+            # TODO If configuration is last in the bashrc file and has no
+            # trailing blank line, this will fail
+            while not self.bashrc_contents[end]:
+                end += 1
+                if end == len(self.bashrc_contents) - 1:
+                    break
+            del self.bashrc_contents[start+1:end]
+            # Insert one blank line
+            self.bashrc_contents.insert(start+1, '')
+
+            # Remove trailing blank lines
+            while not self.bashrc_contents[-1]:
+                del self.bashrc_contents[-1]
+
+            # Add one line end
+            self.bashrc_contents.append('')
+
+        return status
+
+    def add_config(self):
+        self.bashrc_contents += self.config
+
+    def write_bashrc_contents(self):
+        if self.debug:
+            print('\n'.join(self.bashrc_contents))
+        else:
+            with open(self.bashrc_path, 'w+') as f:
+                f.write('\n'.join(self.bashrc_contents))
+
+    def install(self):
+        self.generate_config()
+        self.read_bashrc_contents()
+        if self.delete_config_block():
+            self.add_config()
+            self.write_bashrc_contents()
+
+    def uninstall(self):
+        self.read_bashrc_contents()
+        if self.delete_config_block():
+            self.write_bashrc_contents()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-d', '--debug', help=(
+        "setting this flag will prevent the installer from writing to your"
+        " .bashrc file, instead the result will be printed to the command"
+        " line"), action='store_true')
+    parser.add_argument('-f', '--file', help=(
+        "path to the .bashrc file where you want to install the configuration,"
+        " can be relative, expressed w.r.t. the installer directory"))
+    action = parser.add_mutually_exclusive_group()
+    action.add_argument('-u', '--uninstall', '-r', '--remove', help=(
+        "uninstall scripts by removing the configuration from your .bashrc"
+        " file"), action='store_true')
+
+    args = parser.parse_args(sys.argv[1:])
+
+    inst = RosWorkspaceSwitcherInstaller(args)
