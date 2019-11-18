@@ -4,6 +4,8 @@ import argparse
 import os
 import sys
 
+__version__ = '0.1.0'
+
 
 class RosWorkspaceSwitcherInstaller():
 
@@ -180,11 +182,17 @@ if __name__ == "__main__":
     parser.add_argument('-f', '--file', help=(
         "path to the .bashrc file where you want to install the configuration,"
         " can be relative, expressed w.r.t. the installer directory"))
+    parser.add_argument('-v', '--version', help=(
+        "display the installer's version and exit"), action='store_true')
     action = parser.add_mutually_exclusive_group()
     action.add_argument('-u', '--uninstall', '-r', '--remove', help=(
         "uninstall scripts by removing the configuration from your .bashrc"
         " file"), action='store_true')
 
     args = parser.parse_args(sys.argv[1:])
+
+    if args.version:
+        print(__version__)
+        sys.exit()
 
     inst = RosWorkspaceSwitcherInstaller(args)
