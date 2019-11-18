@@ -56,7 +56,8 @@ class RosWorkspaceSwitcherInstaller():
             "fi",
             "# Source completion of custom scripts",
             "if [ -f " + self.root + "/completion/workspace_comp.py ]; then",
-            "    complete -C " + self.root + "/completion/workspace_comp.py workspace",
+            ("    complete -C " + self.root + "/completion/workspace_comp.py"
+             " workspace"),
             "fi",
             "",
             self.end_str,
