@@ -63,7 +63,7 @@ class RosWorkspaceSwitcherInstaller():
             ""]
 
     def read_bashrc_contents(self):
-
+        print("Reading file contents..")
         if os.path.isfile(self.bashrc_path):
             with open(self.bashrc_path, 'r') as f:
                 self.bashrc_text = f.read()
@@ -83,6 +83,7 @@ class RosWorkspaceSwitcherInstaller():
                 ""]
 
     def delete_config_block(self):
+        print("Search for configuration block in file..")
         start = end = None
         status = True
 
@@ -143,12 +144,14 @@ class RosWorkspaceSwitcherInstaller():
         return status
 
     def add_config(self):
+        print("Adding configuration to file contents..")
         self.bashrc_contents += self.config
 
     def write_bashrc_contents(self):
         if self.debug:
             print('\n'.join(self.bashrc_contents))
         else:
+            print("Writing to file..")
             with open(self.bashrc_path, 'w+') as f:
                 f.write('\n'.join(self.bashrc_contents))
 
@@ -158,11 +161,13 @@ class RosWorkspaceSwitcherInstaller():
         if self.delete_config_block():
             self.add_config()
             self.write_bashrc_contents()
+            print("Done!")
 
     def uninstall(self):
         self.read_bashrc_contents()
         if self.delete_config_block():
             self.write_bashrc_contents()
+            print("Done!")
 
 
 if __name__ == "__main__":
